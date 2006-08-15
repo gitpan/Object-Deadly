@@ -2,7 +2,7 @@
 package Object::Deadly;
 
 use strict;
-require Devel::Symdump;
+use Devel::Symdump;
 
 BEGIN {
 
@@ -31,12 +31,12 @@ Object::Deadly - An object that dies whenever examined
 
 =head1 VERSION
 
-Version 0.04
+Version 0.05
 
 =cut
 
 use vars '$VERSION';    ## no critic Interpolation
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 =head1 SYNOPSIS
 
@@ -64,13 +64,6 @@ object is created.
 
 =cut
 
-use overload ();    # Load it
-use overload(
-    map { $_ => \&_death }
-        map { split ' ' }    ## no critic EmptyQuotes
-        values %overload::ops    ## no critic PackageVars
-);
-
 sub new {
     my $class = shift @_;
     my $data;
@@ -86,7 +79,70 @@ sub new {
         $data =~ s/\AT/Object::Deadly t/xm;
 
     }
-    return bless \$data, $class;
+
+    return bless \$data, "$class\::_unsafe";
+}
+
+=item C<< Object::Deadly->kill_function( FUNCTION NAME ) >>
+
+=item C<< Object::Deadly->kill_function( FUNCTION NAME, DEATH CODE REF ) >>
+
+The class method kill_function accepts a function name like C<< isa >>,
+C<< can >>, or similar and creates a function in the
+C<< Object::Deadly::_unsafe >> class of the same name.
+
+An optional second argument is a code reference to die with. This
+defaults to C<< \&Object::Deadly::_death >>.
+
+=cut
+
+sub kill_function {
+    my ( $class, $func, $death ) = @_;
+    no strict 'refs';    ## no critic Strict
+    return if defined &{"$class\::_unsafe::$func"};
+
+    *{"$class\::_unsafe::$func"} = ( $death || $class->get_death );
+    return 1;
+}
+
+=item C<< Object::Deadly->kill_UNIVERSAL >>
+
+This class method kills all currently known UNIVERSAL functions so
+they can't be called on a C<< Object::Deadly >> object.
+
+=cut
+
+sub kill_UNIVERSAL {
+    my $class = shift @_;
+    for my $fqf_function (
+        'UNIVERSAL::import',     # UNIVERSAL.pm uses Exporter.pm
+        'UNIVERSAL::isa',
+        'UNIVERSAL::can',
+        'UNIVERSAL::VERSION',
+        'UNIVERSAL::DOES',       # perl 5.9.4+
+        'UNIVERSAL::require',    # A CPAN module
+        Devel::Symdump->rnew('UNIVERSAL')->functions
+        )
+    {
+        my $function = $fqf_function;
+        $function =~ s/\AUNIVERSAL:://mx;
+
+        $class->kill_function($function);
+    }
+
+    return 1;
+}
+
+=item C<< Object::Deadly->get_death >>
+
+Returns the function C<< Object::Deadly::_death >>.
+
+=cut
+
+sub get_death {
+    my $class = shift @_;
+    no strict 'refs';    ## no critic Strict
+    return \&{"$class\::_death"};
 }
 
 =back
@@ -100,6 +156,11 @@ consumption.
 
 =item C<< _death( $obj ) >>
 
+This function temporarilly reblesses the object into
+C<< Object::Deadly::_safe >>, extracts the message from inside of it,
+and C<< confess >>'s with it. If possible this will be
+L<Carp::Clan>::confess.
+
 =cut
 
 sub _death {    ## no critic RequireFinalReturn
@@ -107,43 +168,11 @@ sub _death {    ## no critic RequireFinalReturn
 
     # Fetch the message in the object.
     my $class = ref $self;
-    bless $self, 'Object::Deadly::NotDeadly';
+    bless $self, 'Object::Deadly::_safe';
     my $message = $$self;    ## no critic DoubleSigils
     bless $self, $class;
 
     confess "[[[[ $message ]]]]";
-}
-
-=item C<< $obj->DESTROY >>
-
-The DESTROY method doesn't die. This is defined so it won't be
-AUTOLOADed or fetched from UNIVERSAL.
-
-=cut
-
-sub DESTROY {
-
-    # Don't let AUTOLOAD see this. I'd die all the time otherwise.
-}
-
-=item C<< $obj->AUTOLOAD >>
-
-=item C<< $obj->UNIVERSAL::* >>
-
-Each of AUTOLOAD and all functions available through UNIVERSAL are all
-defined so they won't be looked up in the UNIVERSAL package.
-
-=cut
-
-{
-    no warnings 'once';    ## no critic NoWarnings
-    *AUTOLOAD = \&_death;
-}
-
-for my $function ( Devel::Symdump->rnew('UNIVERSAL')->functions ) {
-    $function =~ s/\AUNIVERSAL:://mx;
-    no strict 'refs';      ## no critic NoStrict
-    *$function = \&_death; ## no critic DoubleSigils
 }
 
 =back
@@ -198,6 +227,9 @@ This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 
 =cut
+
+require Object::Deadly::_safe;
+require Object::Deadly::_unsafe;
 
 ## no critic (EndWithOne)
 'For the SAKE... of the FUTURE of ALL... mankind... I WILL have

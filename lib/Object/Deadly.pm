@@ -4,8 +4,26 @@ package Object::Deadly;
 use strict;
 require Devel::Symdump;
 
+BEGIN {
+
+    # Fetch either Carp::Clan::confess or autoload
+    # Carp::confess. Carp::Clan has a bug in 5.3 and earlier that
+    # prevents it from handling overloaded objects in the call
+    # stack. The ticket
+    # http://rt.cpan.org//Ticket/Display.html?id=21002 proposes a fix
+    # to Carp::Clan.
+    #
+    # Also, this happens in BEGIN because I want confess() to exist by
+    # the time the parser sees the call to it farther down below.
+    eval 'use Carp::Clan 5.4;';    ## no critic StringyEval
+    if ( not defined &confess ) {
+        require autouse;
+        autouse->import( Carp => 'confess' );
+    }
+}
+
 # XXX use Carp::Clan once the infinite loop/hang is resolved.
-use Carp 'confess';
+use autouse 'Carp' => 'confess';
 
 =head1 NAME
 
@@ -13,12 +31,12 @@ Object::Deadly - An object that dies whenever examined
 
 =head1 VERSION
 
-Version 0.03
+Version 0.04
 
 =cut
 
 use vars '$VERSION';    ## no critic Interpolation
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 =head1 SYNOPSIS
 
@@ -35,11 +53,11 @@ not supposed to accidentally trigger any potentially overloading.
 
 =over
 
-=item C<Object::Deadly->new()>
+=item C<< Object::Deadly->new() >>
 
-=item C<Object::Deadly->new( MESSAGE )>
+=item C<< Object::Deadly->new( MESSAGE ) >>
 
-The class method C<Object::Deadly->new> returns an C<Object::Deadly>
+The class method C<< Object::Deadly->new >> returns an C<< Object::Deadly >>
 object. Dies with a stack trace and a message when evaluated in any
 context. The default message contains a stack trace from where the
 object is created.
@@ -80,7 +98,7 @@ consumption.
 
 =over
 
-=item C<_death( $obj )>
+=item C<< _death( $obj ) >>
 
 =cut
 
@@ -96,7 +114,7 @@ sub _death {    ## no critic RequireFinalReturn
     confess "[[[[ $message ]]]]";
 }
 
-=item C<$obj->DESTROY>
+=item C<< $obj->DESTROY >>
 
 The DESTROY method doesn't die. This is defined so it won't be
 AUTOLOADed or fetched from UNIVERSAL.
@@ -108,9 +126,9 @@ sub DESTROY {
     # Don't let AUTOLOAD see this. I'd die all the time otherwise.
 }
 
-=item C<$obj->AUTOLOAD>
+=item C<< $obj->AUTOLOAD >>
 
-=item C<$obj->UNIVERSAL::*>
+=item C<< $obj->UNIVERSAL::* >>
 
 Each of AUTOLOAD and all functions available through UNIVERSAL are all
 defined so they won't be looked up in the UNIVERSAL package.
@@ -136,14 +154,11 @@ Joshua ben Jore, C<< <jjore at cpan.org> >>
 
 =head1 BUGS
 
-Please report any bugs or feature requests to
-C<bug-object-deadly at rt.cpan.org>, or through the web interface at
-L<http:/ / rt . cpan . org /NoAuth/ ReportBug . html
-            ? Queue = Object-Deadly > . I will be notified,
-            and
-            then you'll automatically be notified of progress on your bug as I
-            make changes
-            .
+Please report any bugs or feature requests to C<< bug-object-deadly at
+rt.cpan.org >>, or through the web interface at
+L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Object-Deadly>. I
+will be notified, and then you'll automatically be notified of
+progress on your bug as I make changes.
 
 =head1 SUPPORT
 

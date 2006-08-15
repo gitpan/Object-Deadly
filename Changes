@@ -8,3 +8,8 @@ Revision history for Object-Deadly
 
 0.03    2006-08-15
         Use Devel::StackTrace for better stack traces by default.
+
+0.04    2006-08-15
+        C<...> -> C<< ... >> fixed pod formatting
+        Use Carp::Clan 5.4+ or failover to Carp.
+        Expanded author tests.

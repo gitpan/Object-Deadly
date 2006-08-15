@@ -2,7 +2,7 @@ NAME
     Object::Deadly - An object that dies whenever examined
 
 VERSION
-    Version 0.03
+    Version 0.04
 
 SYNOPSIS
     This object is meant to be used in testing. All possible overloading and
@@ -15,9 +15,9 @@ SYNOPSIS
       print $foo; # dies
 
 METHODS
-    "Object::Deadly-"new()>
-    "Object::Deadly-"new( MESSAGE )>
-        The class method "Object::Deadly-"new> returns an "Object::Deadly"
+    "Object::Deadly->new()"
+    "Object::Deadly->new( MESSAGE )"
+        The class method "Object::Deadly->new" returns an "Object::Deadly"
         object. Dies with a stack trace and a message when evaluated in any
         context. The default message contains a stack trace from where the
         object is created.
@@ -27,12 +27,12 @@ PRIVATE FUNCTIONS
     consumption.
 
     "_death( $obj )"
-    "$obj-"DESTROY>
+    "$obj->DESTROY"
         The DESTROY method doesn't die. This is defined so it won't be
         AUTOLOADed or fetched from UNIVERSAL.
 
-    "$obj-"AUTOLOAD>
-    "$obj-"UNIVERSAL::*>
+    "$obj->AUTOLOAD"
+    "$obj->UNIVERSAL::*"
         Each of AUTOLOAD and all functions available through UNIVERSAL are
         all defined so they won't be looked up in the UNIVERSAL package.
 
@@ -41,10 +41,10 @@ AUTHOR
 
 BUGS
     Please report any bugs or feature requests to "bug-object-deadly at
-    rt.cpan.org", or through the web interface at " / rt . cpan . org
-    /NoAuth/ ReportBug . html ? Queue = Object-Deadly " in http: . I will be
-    notified, and then you'll automatically be notified of progress on your
-    bug as I make changes .
+    rt.cpan.org", or through the web interface at
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Object-Deadly>. I will
+    be notified, and then you'll automatically be notified of progress on
+    your bug as I make changes.
 
 SUPPORT
     You can find documentation for this module with the perldoc command.

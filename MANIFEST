@@ -1,12 +1,14 @@
 Changes
 lib/Object/Deadly.pm
 Makefile.PL
-MANIFEST
-META.yml			# Will be created by "make dist"
+MANIFEST			This list of files
+META.yml
 README
 SIGNATURE
-t/00-load.t
-t/10deadly.t
-t/boilerplate.t
-t/pod-coverage.t
-t/pod.t
+t/00signature.t
+t/01pod.t
+t/02pod-coverage.t
+t/03yaml.t
+t/04boilerplate.t
+t/10load.t
+t/20deadly.y

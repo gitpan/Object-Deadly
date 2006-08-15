@@ -1,0 +1,80 @@
+NAME
+    Object::Deadly - An object that dies whenever examined
+
+VERSION
+    Version 0.02
+
+SYNOPSIS
+    This object is meant to be used in testing. All possible overloading and
+    method calls die. You can pass this object into methods which are not
+    supposed to accidentally trigger any potentially overloading.
+
+      use Object::Deadly;
+      
+  my $foo = Object::Deadly->new;
+      print $foo; # dies
+
+METHODS
+    "Object::Deadly-"new()>
+    "Object::Deadly-"new( MESSAGE )>
+        The class method "Object::Deadly-"new> returns an "Object::Deadly"
+        object. Dies with a message when evaluated in any context. The
+        default message contains the caller's package, filename, and line
+        number.
+
+PRIVATE FUNCTIONS
+    The following functions are all private and not meant for public
+    consumption.
+
+    "_death( $obj )"
+    "$obj-"DESTROY>
+        The DESTROY method doesn't die. This is defined so it won't be
+        AUTOLOADed.
+
+    "$obj-"AUTOLOAD>
+    "$obj-"isa>
+    "$obj-"can>
+    "$obj-"VERSION>
+        Each of AUTOLOAD, isa, can and VERSION are all defined so they won't
+        be looked up in the UNIVERSAL package.
+
+AUTHOR
+    Joshua ben Jore, "<jjore at cpan.org>"
+
+BUGS
+    Please report any bugs or feature requests to "bug-object-deadly at
+    rt.cpan.org", or through the web interface at " / rt . cpan . org
+    /NoAuth/ ReportBug . html ? Queue = Object-Deadly " in http: . I will be
+    notified, and then you'll automatically be notified of progress on your
+    bug as I make changes .
+
+SUPPORT
+    You can find documentation for this module with the perldoc command.
+
+      perldoc Object::Deadly
+
+    You can also look for information at:
+
+    *   AnnoCPAN: Annotated CPAN documentation
+
+        <http://annocpan.org/dist/Object-Deadly>
+
+    *   CPAN Ratings
+
+        <http://cpanratings.perl.org/d/Object-Deadly>
+
+    *   RT: CPAN's request tracker
+
+        <http://rt.cpan.org/NoAuth/Bugs.html?Dist=Object-Deadly>
+
+    *   Search CPAN
+
+        <http://search.cpan.org/dist/Object-Deadly>
+
+ACKNOWLEDGEMENTS
+COPYRIGHT & LICENSE
+    Copyright 2006 Joshua ben Jore, all rights reserved.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+

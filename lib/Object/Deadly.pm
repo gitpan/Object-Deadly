@@ -3,7 +3,9 @@ package Object::Deadly;
 
 use strict;
 require Devel::Symdump;
-use autouse Carp => 'croak';
+
+# XXX use Carp::Clan once the infinite loop/hang is resolved.
+use Carp 'confess';
 
 =head1 NAME
 
@@ -11,12 +13,12 @@ Object::Deadly - An object that dies whenever examined
 
 =head1 VERSION
 
-Version 0.02
+Version 0.03
 
 =cut
 
 use vars '$VERSION';    ## no critic Interpolation
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 =head1 SYNOPSIS
 
@@ -38,12 +40,13 @@ not supposed to accidentally trigger any potentially overloading.
 =item C<Object::Deadly->new( MESSAGE )>
 
 The class method C<Object::Deadly->new> returns an C<Object::Deadly>
-object. Dies with a message when evaluated in any context. The default
-message contains the caller's package, filename, and line number.
+object. Dies with a stack trace and a message when evaluated in any
+context. The default message contains a stack trace from where the
+object is created.
 
 =cut
 
-use overload;
+use overload ();    # Load it
 use overload(
     map { $_ => \&_death }
         map { split ' ' }    ## no critic EmptyQuotes
@@ -57,8 +60,13 @@ sub new {
         $data = shift @_;
     }
     else {
-        my ( $package, $file, $line ) = caller;
-        $data = "$package at $file line $line.";
+        require Devel::StackTrace;
+
+        # XXX Allow users to influence this object.
+        $data = Devel::StackTrace->new( ignore_package => 'Object::Deadly' )
+            ->as_string;
+        $data =~ s/\AT/Object::Deadly t/xm;
+
     }
     return bless \$data, $class;
 }
@@ -85,7 +93,7 @@ sub _death {    ## no critic RequireFinalReturn
     my $message = $$self;    ## no critic DoubleSigils
     bless $self, $class;
 
-    croak $message;
+    confess "[[[[ $message ]]]]";
 }
 
 =item C<$obj->DESTROY>

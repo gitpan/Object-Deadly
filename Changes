@@ -5,3 +5,6 @@ Revision history for Object-Deadly
 
 0.02    2006-08-14
         I hate svk.
+
+0.03    2006-08-15
+        Use Devel::StackTrace for better stack traces by default.

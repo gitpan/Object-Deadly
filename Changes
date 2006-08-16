@@ -1,5 +1,10 @@
 Revision history for Object-Deadly
 
+0.06 - Wed Aug 16 11:02:33 2006
+	0.06
+
+	.
+
 0.01    2006-08-14
         First version, released on an unsuspecting world.
 
@@ -19,3 +24,9 @@ Revision history for Object-Deadly
         Allowed Object::Deadly to get subclassed.
         Added a list of all known UNIVERSAL methods
         Added API functions ->get_death, ->kill_UNIVERSAL, ->kill_function
+
+0.06    2006-08-15
+        I'm done now? Right?
+        Removed the version from the pod.
+        Moved the pod to the end. It was distracting.
+        Made t/20deadly.y actually run. It wasn't before.

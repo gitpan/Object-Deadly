@@ -2,7 +2,7 @@ NAME
     Object::Deadly - An object that dies whenever examined
 
 VERSION
-    Version 0.04
+    Version 0.05
 
 SYNOPSIS
     This object is meant to be used in testing. All possible overloading and
@@ -22,19 +22,30 @@ METHODS
         context. The default message contains a stack trace from where the
         object is created.
 
+    "Object::Deadly->kill_function( FUNCTION NAME )"
+    "Object::Deadly->kill_function( FUNCTION NAME, DEATH CODE REF )"
+        The class method kill_function accepts a function name like "isa",
+        "can", or similar and creates a function in the
+        "Object::Deadly::_unsafe" class of the same name.
+
+        An optional second argument is a code reference to die with. This
+        defaults to "\&Object::Deadly::_death".
+
+    "Object::Deadly->kill_UNIVERSAL"
+        This class method kills all currently known UNIVERSAL functions so
+        they can't be called on a "Object::Deadly" object.
+
+    "Object::Deadly->get_death"
+        Returns the function "Object::Deadly::_death".
+
 PRIVATE FUNCTIONS
     The following functions are all private and not meant for public
     consumption.
 
     "_death( $obj )"
-    "$obj->DESTROY"
-        The DESTROY method doesn't die. This is defined so it won't be
-        AUTOLOADed or fetched from UNIVERSAL.
-
-    "$obj->AUTOLOAD"
-    "$obj->UNIVERSAL::*"
-        Each of AUTOLOAD and all functions available through UNIVERSAL are
-        all defined so they won't be looked up in the UNIVERSAL package.
+        This function temporarilly reblesses the object into
+        "Object::Deadly::_safe", extracts the message from inside of it, and
+        "confess"'s with it. If possible this will be Carp::Clan::confess.
 
 AUTHOR
     Joshua ben Jore, "<jjore at cpan.org>"

@@ -13,7 +13,7 @@ http://rt.cpan.org//Ticket/Display.html?id=21002.
 END_NOTE
 if (prompt(
         'Do you wish to add Carp::Clan 5.4+ to the list of prerequisites?',
-        'y' ) =~ /y/i
+        'n' ) =~ /y/i
     )
 {
     $prerequisites{'Carp::Clan'} = '5.4';

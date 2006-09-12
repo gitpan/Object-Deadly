@@ -3,13 +3,7 @@ package Object::Deadly;
 
 use strict;
 
-# Import B::sub_generation if possible.
-require B;
-if ( grep { $_ eq 'sub_generation' } @B::EXPORT_OK ) {
-    B->import('sub_generation');
-}
-
-require Devel::Symdump;
+use Devel::Symdump ();
 
 BEGIN {
 
@@ -22,24 +16,23 @@ BEGIN {
     #
     # Also, this happens in BEGIN because I want confess() to exist by
     # the time the parser sees the call to it farther down below.
-    eval 'use Carp::Clan 5.4;';
+
+    eval 'use Carp::Clan 5.4;';    ## no critic
     if ( not defined &confess ) {
         require autouse;
         autouse->import( Carp => 'confess' );
     }
 }
 
-use vars '$VERSION';    ## no critic Interpolation
-$VERSION = '0.06';
-
-use vars '$sub_generation';    ## no critic Interpolation
-$sub_generation = 0;
+use vars '$VERSION';               ## no critic Interpolation
+$VERSION = '0.07';
 
 sub new {
 
     # Public, overridable class method. Returns an _unsafe object.
 
-    my $class = shift @_;
+    my $class                = shift @_;
+    my $implementation_class = "$class\::_unsafe";
 
     my $data;
     if (@_) {
@@ -50,23 +43,12 @@ sub new {
         # No sense in loading this unless we actually use it.
         require Devel::StackTrace;
 
-        $data = Devel::StackTrace->new( ignore_package => 'Object::Deadly' )
-            ->as_string;
+        $data = Devel::StackTrace->new( ignore_package => $class )->as_string;
         $data =~ s/\AT/Object::Deadly t/xm;
 
     }
 
-    # If I'm tracking the ISA cache, see if it's time to rekill
-    # UNIVERSAL.
-    if ( defined &sub_generation ) {
-        my $new_sub_generation = sub_generation();
-        if ( $new_sub_generation > $sub_generation ) {
-            $class->kill_UNIVERSAL;
-            $sub_generation = sub_generation();
-        }
-    }
-
-    return bless \$data, "$class\::_unsafe";
+    return bless \$data, $implementation_class;
 }
 
 sub kill_function {
@@ -75,13 +57,19 @@ sub kill_function {
     # the _unsafe class.
 
     my ( $class, $func, $death ) = @_;
+    my $implementation_class = "$class\::_unsafe";
+    my $function_name        = "$implementation_class\::$func";
     no strict 'refs';    ## no critic Strict
 
-    if ( defined &{"$class\::_unsafe::$func"} ) {
+    if ( defined &$function_name ) {    ## no critic
         return;
     }
+    elsif ( defined $death ) {
+        *$function_name = $death;       ## no critic
+        return 1;
+    }
     else {
-        *{"$class\::_unsafe::$func"} = ( $death || $class->get_death );
+        *$function_name = $class->get_death;    ## no critic
         return 1;
     }
 }
@@ -143,26 +131,30 @@ sub get_death {
     # Public, overridable method call. Returns the _death function
     my $class = shift @_;
     no strict 'refs';    ## no critic Strict
-    return $class->can('_death');
+    return \&_death;
 }
 
 sub _death {             ## no critic RequireFinalReturn
                          # The common death
     my $self = shift @_;
 
-    # Fetch the message in the object.
-    my $class = ref $self;
-    bless $self, 'Object::Deadly::_safe';
+    # Fetch the message in the object by switching the object into
+    # something that's safe.
+    my $unsafe_implementation_class = ref $self;
+    my $safe_implementation_class   = $unsafe_implementation_class;
+    $safe_implementation_class =~ s/\::_unsafe\z/::_safe/mx;
+
+    bless $self, $safe_implementation_class;
     my $message = $$self;    ## no critic DoubleSigils
-    bless $self, $class;
+    bless $self, $unsafe_implementation_class;
 
     confess "[[[[ $message ]]]]";
 }
 
 # Compile and load our implementing classes. Don't use use() because
 # that'll call ->import.
-require Object::Deadly::_safe;
-require Object::Deadly::_unsafe;
+use Object::Deadly::_safe   ();
+use Object::Deadly::_unsafe ();
 
 ## no critic (EndWithOne)
 'For the SAKE... of the FUTURE of ALL... mankind... I WILL have
@@ -174,20 +166,30 @@ __END__
 
 Object::Deadly - An object that dies whenever examined
 
-=head1 VERSION
-
-Version 0.05
-
 =head1 SYNOPSIS
+
+  use Object::Deadly;
+  use Test::Exception 'lives_ok';
+  
+  # Test that a few functions inspect their parameters safely
+  lives_ok { some_function( Object::Deadly->new ) } 'some_function';
+  lives_ok { Dumper( Object::Deadly->new ) } 'Data::Dumper';
+
+=head1 DESCRIPTION
 
 This object is meant to be used in testing. All possible overloading
 and method calls die. You can pass this object into methods which are
 not supposed to accidentally trigger any potentially overloading.
 
-  use Object::Deadly;
-  
-  my $foo = Object::Deadly->new;
-  print $foo; # dies  
+This problem arose when testing L<Data::Dump::Streamer> and
+L<Carp>. The former was triggering overloaded object methods instead
+of just dumping their data. L<Data::Dump::Streamer> is now safe for
+overloaded objects but it wouldn't have been unless it hadn't have
+been tested with a deadly, overloaded object.
+
+=head1 DEALING WITH DEATH
+
+TODO
 
 =head1 METHODS
 
@@ -211,12 +213,14 @@ C<< can >>, or similar and creates a function in the
 C<< Object::Deadly::_unsafe >> class of the same name.
 
 An optional second argument is a code reference to die with. This
-defaults to C<< \&Object::Deadly::_death >>.
+defaults to C<< Object::Deadly->can( '_death' ) >>.
 
 =item C<< Object::Deadly->kill_UNIVERSAL >>
 
 This class method kills all currently known UNIVERSAL functions so
-they can't be called on a C<< Object::Deadly >> object.
+they can't be called on a C<< Object::Deadly >> object. This includes
+a list of methods known to the author and then an inspection of
+UNIVERSAL::.
 
 =item C<< Object::Deadly->get_death >>
 
@@ -281,6 +285,8 @@ L<http://search.cpan.org/dist/Object-Deadly>
 =back
 
 =head1 ACKNOWLEDGEMENTS
+
+Yves Orton and Yitzchak Scott-Thoennes.
 
 =head1 COPYRIGHT & LICENSE
 

@@ -1,10 +1,5 @@
 Revision history for Object-Deadly
 
-0.06 - Wed Aug 16 11:02:33 2006
-	0.06
-
-	.
-
 0.01    2006-08-14
         First version, released on an unsuspecting world.
 
@@ -30,3 +25,10 @@ Revision history for Object-Deadly
         Removed the version from the pod.
         Moved the pod to the end. It was distracting.
         Made t/20deadly.y actually run. It wasn't before.
+
+0.07    2006-09-12
+        Added some trivial documentation to Object::Deadly::_safe.
+        Made Object::Deadly::_safe ok for Lint's StrictOO check.
+        Removed all the isa cache stuff til I can do that sanely.
+        Added a bit more docs.
+        Added acknowledgement section.

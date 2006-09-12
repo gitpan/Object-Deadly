@@ -1,9 +1,9 @@
-## no critic (Version,PodSections,Warnings)
+## no critic (Version,PodSections,Warnings,Rcs)
 package Object::Deadly::_unsafe;
 
 use strict;
 
-require overload;
+use overload ();
 my $death = Object::Deadly->get_death;
 overload->import(
     map { $_ => $death }
@@ -13,13 +13,16 @@ overload->import(
 
 # Kill off all UNIVERSAL things and try it at several points during
 # execution just in case someone added something along the way.
+use Object::Deadly ();
 Object::Deadly->kill_UNIVERSAL;
-CHECK { Object::Deadly->kill_UNIVERSAL; }
-INIT  { Object::Deadly->kill_UNIVERSAL; }
-END   { Object::Deadly->kill_UNIVERSAL; }
 
-Object::Deadly->kill_function('AUTOLOAD');
+#CHECK { Object::Deadly->kill_UNIVERSAL; }
+#INIT  { Object::Deadly->kill_UNIVERSAL; }
+#END   { Object::Deadly->kill_UNIVERSAL; }
 
+#Object::Deadly->kill_function('AUTOLOAD');
+
+# DESTROY is the only legal method for these objects. It has to be.
 sub DESTROY { }
 
 1;

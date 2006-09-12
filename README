@@ -1,18 +1,27 @@
 NAME
     Object::Deadly - An object that dies whenever examined
 
-VERSION
-    Version 0.05
-
 SYNOPSIS
+      use Object::Deadly;
+      use Test::Exception 'lives_ok';
+      
+  # Test that a few functions inspect their parameters safely
+      lives_ok { some_function( Object::Deadly->new ) } 'some_function';
+      lives_ok { Dumper( Object::Deadly->new ) } 'Data::Dumper';
+
+DESCRIPTION
     This object is meant to be used in testing. All possible overloading and
     method calls die. You can pass this object into methods which are not
     supposed to accidentally trigger any potentially overloading.
 
-      use Object::Deadly;
-      
-  my $foo = Object::Deadly->new;
-      print $foo; # dies
+    This problem arose when testing Data::Dump::Streamer and Carp. The
+    former was triggering overloaded object methods instead of just dumping
+    their data. Data::Dump::Streamer is now safe for overloaded objects but
+    it wouldn't have been unless it hadn't have been tested with a deadly,
+    overloaded object.
+
+DEALING WITH DEATH
+    TODO
 
 METHODS
     "Object::Deadly->new()"
@@ -29,11 +38,13 @@ METHODS
         "Object::Deadly::_unsafe" class of the same name.
 
         An optional second argument is a code reference to die with. This
-        defaults to "\&Object::Deadly::_death".
+        defaults to "Object::Deadly->can( '_death' )".
 
     "Object::Deadly->kill_UNIVERSAL"
         This class method kills all currently known UNIVERSAL functions so
-        they can't be called on a "Object::Deadly" object.
+        they can't be called on a "Object::Deadly" object. This includes a
+        list of methods known to the author and then an inspection of
+        UNIVERSAL::.
 
     "Object::Deadly->get_death"
         Returns the function "Object::Deadly::_death".
@@ -81,6 +92,8 @@ SUPPORT
         <http://search.cpan.org/dist/Object-Deadly>
 
 ACKNOWLEDGEMENTS
+    Yves Orton and Yitzchak Scott-Thoennes.
+
 COPYRIGHT & LICENSE
     Copyright 2006 Joshua ben Jore, all rights reserved.
 

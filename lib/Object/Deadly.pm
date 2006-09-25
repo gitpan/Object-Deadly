@@ -4,32 +4,27 @@ package Object::Deadly;
 use strict;
 
 use Devel::Symdump ();
+use Scalar::Util qw(refaddr blessed);
+use English '$EVAL_ERROR';    ## no critic Interpolation
+use Carp::Clan 5.4;
 
-BEGIN {
+use vars '$VERSION';          ## no critic Interpolation
+$VERSION = '0.09';
 
-    # Fetch either Carp::Clan::confess or autoload
-    # Carp::confess. Carp::Clan has a bug in 5.3 and earlier that
-    # prevents it from handling overloaded objects in the call
-    # stack. The ticket
-    # http://rt.cpan.org//Ticket/Display.html?id=21002 proposes a fix
-    # to Carp::Clan.
-    #
-    # Also, this happens in BEGIN because I want confess() to exist by
-    # the time the parser sees the call to it farther down below.
+sub new_with {
 
-    eval 'use Carp::Clan 5.4;';    ## no critic
-    if ( not defined &confess ) {
-        require autouse;
-        autouse->import( Carp => 'confess' );
-    }
+    # Public, overridable class method. Returns an _unsafe
+    # object. Accepts a single reference which will be blessed.
+    my ( $class, $self ) = @_;
+    my $implementation_class = "$class\::_unsafe";
+
+    return bless $self, $implementation_class;
 }
-
-use vars '$VERSION';               ## no critic Interpolation
-$VERSION = '0.07';
 
 sub new {
 
-    # Public, overridable class method. Returns an _unsafe object.
+    # Public, overridable class method. Returns an ${class}::_unsafe
+    # object.
 
     my $class                = shift @_;
     my $implementation_class = "$class\::_unsafe";
@@ -48,70 +43,96 @@ sub new {
 
     }
 
-    return bless \$data, $implementation_class;
+    my $self = bless \$data, $implementation_class;
+    no strict 'refs';    ## no critic strict
+    ${"${implementation_class}::SIMPLE_OBJECTS"}{ refaddr $self} = undef;
+
+    return $self;
 }
 
 sub kill_function {
 
     # Public, overridable class method. Creates a deadly function in
-    # the _unsafe class.
+    # the ${class}::_unsafe class.
 
     my ( $class, $func, $death ) = @_;
     my $implementation_class = "$class\::_unsafe";
     my $function_name        = "$implementation_class\::$func";
     no strict 'refs';    ## no critic Strict
 
-    if ( defined &$function_name ) {    ## no critic
+    if ( defined &$function_name ) {    ## no critic Sigil
         return;
     }
-    elsif ( defined $death ) {
-        *$function_name = $death;       ## no critic
-        return 1;
+
+    # Get a default death if our caller hasn't given us something
+    # special.
+    if ( not defined $death ) {
+        $death = $class->get_death;
     }
-    else {
-        *$function_name = $class->get_death;    ## no critic
-        return 1;
+
+    my $src = <<"PROXY_FOR_DEATH";
+#line @{[__LINE__+2]} "@{[__FILE__]}"
+        package $implementation_class;
+        \$death = \$death;
+        sub $func {
+            if ( defined Object::Deadly::blessed \$_[0] ) {
+
+                # Object method calls are fatal.
+                \$death->( \$_[0], "Function $func" );
+            }
+            else {
+                my \$class = shift \@_;
+                return \$class->SUPER::$func( \@_ );
+            }
+        }
+PROXY_FOR_DEATH
+    eval $src;    ## no critic eval
+    if ($EVAL_ERROR) {
+        croak "$src\n$EVAL_ERROR";
     }
+
+    return 1;
 }
+
+# A dictionary of stuff that can show up in UNIVERSAL.
+our @UNIVERSAL_METHODS = (
+
+    # core perl
+    qw( isa can VERSION ),
+
+    # core perl 5.9.4+
+    'DOES',
+
+    # UNIVERSAL.pm
+    'import',
+
+    # UNIVERSAL/require.pm
+    qw( require use ),
+
+    # UNIVERSAL/dump.pm
+    qw( blessed dump peek refaddr ),
+
+    # UNIVERSAL/exports.pm
+    'exports',
+
+    # UNIVERSAL/moniker.pm
+    qw( moniker plural_moniker ),
+
+    # UNIVERSAL/which.pm
+    'which',
+
+    # SUPER.pm
+    qw( super SUPER ),
+);
 
 sub kill_UNIVERSAL {
 
-    # Public, overridable method call. Creates deadly functions to
-    # mask all UNIVERSAL methods.
+    # Public, overridable method call. Creates deadly functions in
+    # ${class}::_unsafe to mask all UNIVERSAL methods.
 
     my $class = shift @_;
     for my $fqf_function (
-
-        # core perl
-        'isa',
-        'can',
-        'VERSION',
-
-        # core perl 5.9.3+
-        'DOES',
-
-        # UNIVERSAL.pm
-        'import',
-
-        # UNIVERSAL/require.pm
-        'require',
-        'use',
-
-        # UNIVERSAL/dump.pm
-        'blessed',
-        'dump',
-        'peek',
-        'refaddr',
-
-        # UNIVERSAL/exports.pm
-        'exports',
-
-        # UNIVERSAL/moniker.pm
-        'moniker',
-        'plural_moniker',
-
-        # UNIVERSAL/which.pm
-        'which',
+        @UNIVERSAL_METHODS,
 
         # Anything else we happen to find
         Devel::Symdump->rnew('UNIVERSAL')->functions
@@ -130,33 +151,16 @@ sub get_death {
 
     # Public, overridable method call. Returns the _death function
     my $class = shift @_;
+
     no strict 'refs';    ## no critic Strict
-    return \&_death;
+    return \&{"${class}::_unsafe::death"};
 }
 
-sub _death {             ## no critic RequireFinalReturn
-                         # The common death
-    my $self = shift @_;
-
-    # Fetch the message in the object by switching the object into
-    # something that's safe.
-    my $unsafe_implementation_class = ref $self;
-    my $safe_implementation_class   = $unsafe_implementation_class;
-    $safe_implementation_class =~ s/\::_unsafe\z/::_safe/mx;
-
-    bless $self, $safe_implementation_class;
-    my $message = $$self;    ## no critic DoubleSigils
-    bless $self, $unsafe_implementation_class;
-
-    confess "[[[[ $message ]]]]";
-}
-
-# Compile and load our implementing classes. Don't use use() because
-# that'll call ->import.
+# Compile and load our implementing classes.
 use Object::Deadly::_safe   ();
 use Object::Deadly::_unsafe ();
 
-## no critic (EndWithOne)
+## no critic EndWithOne
 'For the SAKE... of the FUTURE of ALL... mankind... I WILL have
 a... SMALL sprite!';
 
@@ -204,6 +208,13 @@ object. Dies with a stack trace and a message when evaluated in any
 context. The default message contains a stack trace from where the
 object is created.
 
+=item C<< Object::Deadly->new_with( REFERENCE ) >>
+
+The class method C<< Object::Deadly->new_with >> returns an C<< Object::Deadly >>
+object. Dies with a stack trace and a message when evaluated in any
+context. The default message contains a stack trace from where the
+object is created.
+
 =item C<< Object::Deadly->kill_function( FUNCTION NAME ) >>
 
 =item C<< Object::Deadly->kill_function( FUNCTION NAME, DEATH CODE REF ) >>
@@ -239,8 +250,7 @@ consumption.
 
 This function temporarilly reblesses the object into
 C<< Object::Deadly::_safe >>, extracts the message from inside of it,
-and C<< confess >>'s with it. If possible this will be
-L<Carp::Clan>::confess.
+and C<< confess >>'s with it.
 
 =back
 

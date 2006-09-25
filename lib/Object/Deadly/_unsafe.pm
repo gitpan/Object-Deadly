@@ -6,7 +6,17 @@ use strict;
 use overload ();
 my $death = Object::Deadly->get_death;
 overload->import(
-    map { $_ => $death }
+    map {
+        my $bad_operation = $_;
+
+        # returns a pair.
+        $bad_operation => sub {
+
+            ## no critic Local
+            local *__ANON__ = __PACKAGE__ . "::$bad_operation";
+            $death->( $_[0], "Overloaded $bad_operation" );
+            }
+        }
         map { split ' ' }    ## no critic EmptyQuotes
         values %overload::ops    ## no critic PackageVars
 );
@@ -16,14 +26,60 @@ overload->import(
 use Object::Deadly ();
 Object::Deadly->kill_UNIVERSAL;
 
-#CHECK { Object::Deadly->kill_UNIVERSAL; }
-#INIT  { Object::Deadly->kill_UNIVERSAL; }
-#END   { Object::Deadly->kill_UNIVERSAL; }
+# Eval CHECK and INIT blocks into existance but only if we haven't
+# reached the main program yet. This is just to avoid the warning.
+use B ();
+use English '$EVAL_ERROR';       ## no critic
 
-#Object::Deadly->kill_function('AUTOLOAD');
+BEGIN {
+    if ( not ${ B::main_start() } ) {
+        eval <<"CODE";           ## no critic
+#line @{[__LINE__]} "@{[__FILE__]}"
+            CHECK { Object::Deadly->kill_UNIVERSAL; }
+            INIT  { Object::Deadly->kill_UNIVERSAL; }
+CODE
+        croak $EVAL_ERROR if $EVAL_ERROR;
+    }
+}
+
+END { Object::Deadly->kill_UNIVERSAL; }
+
+Object::Deadly->kill_function('AUTOLOAD');
+
+use vars '%SIMPLE_OBJECTS';
 
 # DESTROY is the only legal method for these objects. It has to be.
-sub DESTROY { }
+sub DESTROY {
+    delete $Object::Deadly::SIMPLE_OBJECTS{ Object::Deadly::refaddr $_[0] };
+    return;
+}
+
+sub death {    ## no critic RequireFinalReturn
+               # The common death
+    my ( $self, $bad_operation ) = @_;
+
+    my $unsafe_implementation_class = Object::Deadly::blessed $self;
+    my $addr                        = Object::Deadly::refaddr $self;
+    my $name = sprintf '%s=(0x%07x)', $unsafe_implementation_class, $addr;
+    my $message;
+    if ( exists $SIMPLE_OBJECTS{$addr} ) {
+
+        # Fetch the message in the object by switching the object into
+        # something that's safe.
+        my $safe_implementation_class = $unsafe_implementation_class;
+        $safe_implementation_class =~ s/\::_unsafe\z/::_safe/mx;
+
+        bless $self, $safe_implementation_class;
+        $message = $$self;    ## no critic DoubleSigils
+        bless $self, $unsafe_implementation_class;
+
+        Object::Deadly::confess
+            "Attempt to call $bad_operation on $name: $message";
+    }
+    else {
+        Object::Deadly::confess "Attempt to call $bad_operation on $name";
+    }
+}
 
 1;
 
